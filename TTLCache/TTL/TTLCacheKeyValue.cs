@@ -1,70 +1,60 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using Microsoft.VisualBasic;
 
 namespace TTLCache.TTL;
 
-class Key<TKey> : IComparable<Key<TKey>>
+public class ValueWrapper<TValue>
 {
-    public TKey Value;
-    public DateTime ExpireDate;
-    public Key(TKey value, DateTime Expire)
-    {
-        
-        Value = value;
-        ExpireDate = Expire;
-    }
-
-    public int CompareTo(Key<TKey> other)
-    {
-        if (Value.Equals(other.Value)) return 0;
-        if (other == null || ExpireDate >= other.ExpireDate) return 1;
-        if (ExpireDate < other.ExpireDate) return -1;
-        return 1;
-    }
+    public TValue value { get; set; }
+    public DateTime ExpireDate { get; set; }
 }
 
 
-public class TTLCacheKeyValue<TKey,TValue> where TValue : class
+public class TtlCacheKeyValue<TKey, TValue> : IDisposable
 {
-    private Dictionary<TKey, DateTime> _keyExpiers = new();
-    private SortedDictionary<Key<TKey>, TValue> _dictionary = new();
-    private Mutex _mutex = new Mutex();
-
-    public void Set(TKey key, TValue value, DateTime timeDelta)
+    private ConcurrentDictionary<TKey, ValueWrapper<TValue>?> _dictionary = new();
+    private TimeSpan _timeSpanBetweenInvalidate;
+    private CancellationTokenSource _cts = new();
+    
+    public TtlCacheKeyValue(TimeSpan timeSpanBetweenInvalidate)
     {
-        _mutex.WaitOne();
-        var Now = DateTime.Now;
-        var Expire = new DateTime(Now.Ticks + timeDelta.Ticks);
-        var NewKey = new Key<TKey>(key, Expire);
-        if (_dictionary.Count() != 0)
+        var ct = _cts.Token;
+        _timeSpanBetweenInvalidate = timeSpanBetweenInvalidate; 
+        Task.Run(()=>StartInvalidateCacheLoop(ct),ct);
+    }
+    
+    public void Set(TKey key,TValue value,TimeSpan span)
+    {
+        var now = DateTime.Now;
+        _dictionary[key] = new ValueWrapper<TValue>{value = value, ExpireDate = now + span};
+    }
+    
+    public TValue Get(TKey key)
+    {
+        if (_dictionary.TryGetValue(key,out var value))
         {
-            while (_dictionary.First().Key.ExpireDate < Now)
-            {
-                var First = _dictionary.First();
-                _keyExpiers.Remove(First.Key.Value);
-                _dictionary.Remove(First.Key);
-            }
+            return value.value;
         }
-
-        _keyExpiers[key] = Expire;
-        _dictionary[NewKey] = value;
-        _mutex.ReleaseMutex();
+        return default;
     }
 
-    public TValue? Get(TKey key)
+    private async Task StartInvalidateCacheLoop(CancellationToken ct)
     {
-        if (_keyExpiers.ContainsKey(key))
+        while (ct.IsCancellationRequested==false)
         {
-            var Now = DateTime.Now;
-            var Expire = _keyExpiers[key];
-            var SearchedKey = new Key<TKey>(key, Expire);
-            if (Expire < Now)
-            {
-                return null;
-            }
-            return _dictionary[SearchedKey];
+            await Task.Delay(_timeSpanBetweenInvalidate);
+            DateTime now = DateTime.Now;
+            var ExpiredPair =_dictionary
+                .Where(pair => pair.Value.ExpireDate < now)
+                .Select(x => x.Key)
+                .ToList();
+            ExpiredPair.ForEach(k=>_dictionary.Remove(k,out _));
         }
+    }
 
-        throw new Exception($"Key '{key}' is not exist");
+    public void Dispose()
+    {
+        _cts.Cancel();
     }
 }
