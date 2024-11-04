@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TTLCache", "TTLCache\TTLCache.csproj", "{97389B09-CD2B-4841-A95A-AE436D0E50FC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{71563409-1A43-4F32-99C0-5FB40E81A501}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{97389B09-CD2B-4841-A95A-AE436D0E50FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{97389B09-CD2B-4841-A95A-AE436D0E50FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{97389B09-CD2B-4841-A95A-AE436D0E50FC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{71563409-1A43-4F32-99C0-5FB40E81A501}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71563409-1A43-4F32-99C0-5FB40E81A501}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71563409-1A43-4F32-99C0-5FB40E81A501}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71563409-1A43-4F32-99C0-5FB40E81A501}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

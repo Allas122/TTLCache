@@ -1,6 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Collections.Specialized;
-using Microsoft.VisualBasic;
 
 namespace TTLCache.TTL;
 
@@ -13,7 +11,7 @@ public class ValueWrapper<TValue>
 
 public class TtlCacheKeyValue<TKey, TValue> : IDisposable
 {
-    private ConcurrentDictionary<TKey, ValueWrapper<TValue>?> _dictionary = new();
+    private ConcurrentDictionary<TKey, ValueWrapper<TValue>> _dictionary = new();
     private TimeSpan _timeSpanBetweenInvalidate;
     private CancellationTokenSource _cts = new();
     
@@ -32,11 +30,17 @@ public class TtlCacheKeyValue<TKey, TValue> : IDisposable
     
     public TValue Get(TKey key)
     {
-        if (_dictionary.TryGetValue(key,out var value))
+        var now = DateTime.Now;
+        if (_dictionary.TryGetValue(key, out var value) == false)
         {
-            return value.value;
+            return default;
         }
-        return default;
+        if (value.ExpireDate < now)
+        {
+            _dictionary.TryRemove(key, out var _);
+            return default;
+        }
+        return value.value;
     }
 
     private async Task StartInvalidateCacheLoop(CancellationToken ct)
@@ -49,12 +53,13 @@ public class TtlCacheKeyValue<TKey, TValue> : IDisposable
                 .Where(pair => pair.Value.ExpireDate < now)
                 .Select(x => x.Key)
                 .ToList();
-            ExpiredPair.ForEach(k=>_dictionary.Remove(k,out _));
+            ExpiredPair.ForEach(k=>_dictionary.TryRemove(k,out _));
         }
     }
 
     public void Dispose()
     {
         _cts.Cancel();
+        _cts.Dispose();
     }
 }
